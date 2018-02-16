@@ -1,0 +1,19 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    exifr (1.2.5)
+    mini_portile2 (2.1.0)
+    nokogiri (1.7.1)
+      mini_portile2 (~> 2.1.0)
+    parallel (1.11.1)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  exifr
+  nokogiri
+  parallel
+
+BUNDLED WITH
+   1.12.5
