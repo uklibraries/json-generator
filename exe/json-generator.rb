@@ -123,7 +123,8 @@ end
 #@dip_dir = '/opt/shares/library_dips_1/' + xtpath(@id)
 @dip_dir = '/opt/shares/library_dips_2/test_dips/' + xtpath(@id)
 
-solr_dir = '/tmpdir/solr-cache/' + xtpath(@id)
+#solr_dir = '/tmpdir/solr-cache/' + xtpath(@id)
+solr_dir = 'solr-cache-old/' + xtpath(@id)
 FileUtils.mkdir_p solr_dir
 
 mets_file = File.join @dip_dir, 'data', 'mets.xml'
@@ -396,6 +397,8 @@ Parallel.each(@mets.xpath('//mets:fileGrp', @namespaces).reject {|node|
                         base_resolution = @mets.xpath('//mets:digiProvMD/mets:process/mets:process_reformat[@FIELDTYPE="reformatInfo"]', @namespaces).first
                         if base_resolution
                             resolution = base_resolution.content.to_i
+                        else
+                            resolution = 300
                         end
                     rescue
                         resolution = 300
@@ -438,6 +441,8 @@ Parallel.each(@mets.xpath('//mets:fileGrp', @namespaces).reject {|node|
                 copy[:format] = 'audio'
             elsif page_type == 'audio'
                 copy[:format] = 'audio'
+            elsif page_type == 'video'
+                copy[:format] = 'audiovisual'
             elsif page_type == 'photograph'
                 copy[:format] = 'images'
             elsif page_type == 'sheet'
