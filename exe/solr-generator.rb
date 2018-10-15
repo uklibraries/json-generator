@@ -66,6 +66,8 @@ solr_dir = '/tmpdir/solr-cache/' + xtpath(@id)
 #mets_file = File.join @dip_dir, 'data', 'mets.xml'
 FileUtils.mkdir_p json_dir
 FileUtils.mkdir_p solr_dir
+FileUtils.rm_rf solr_dir
+FileUtils.mkdir_p solr_dir
 
 #Find.find(json_dir) do |path|
 Parallel.each(Find.find(json_dir)) do |path|
