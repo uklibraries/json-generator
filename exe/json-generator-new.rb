@@ -23,6 +23,10 @@ core_doc = build_core_doc
 process_dip_object(core_doc)
 
 first_div = @mets.xpath('//mets:div', @namespaces).first
+if first_div.nil?
+    exit
+end
+
 case first_div['TYPE']
 when 'section'
     has_sections = true
@@ -31,7 +35,7 @@ else
 end
 
 if has_sections
-    puts "* sections"
+    #puts "* sections"
     Parallel.each(@mets.xpath('//mets:div[@TYPE="section"]', @namespaces)) do |section|
     #@mets.xpath('//mets:div[@TYPE="section"]', @namespaces).each do |section|
         process_section(section, core_doc)
@@ -39,7 +43,7 @@ if has_sections
         #puts "* #{core_doc[:id]}_#{order}"
     end
 else
-    puts "* no sections"
+    #puts "* no sections"
     Parallel.each(@mets.xpath('//mets:div', @namespaces)) do |leaf|
     #@mets.xpath('//mets:div', @namespaces).each do |leaf|
         process_leaf(leaf, core_doc)

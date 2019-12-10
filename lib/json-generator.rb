@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'exifr'
+require 'exifr/jpeg'
 require 'json'
 require 'nokogiri'
 require 'parallel'
@@ -54,11 +55,12 @@ def process_dip_object(core_doc)
     if @has_finding_aid
         dip_object_type = :Collection
         @dip_doc[:object_type] = 'collection'
+        @dip_doc[:format] = ['collections']
 
         @has_digitized_content = false
         @c = 0
         @mets.xpath('//mets:fileGrp', @namespaces).reject {|node|
-            node['USE'] == 'reel metadata' or node['USER'] =~ /wave file/
+            node['USE'] == 'reel metadata' or node['USE'] =~ /wave file/
         }.each {|node|
             @c += 1
             if @c > 1
@@ -85,6 +87,8 @@ def process_dip_object(core_doc)
             text_pieces << node.text
         end
         @dip_doc[:text] = text_pieces.join(' ')
+
+        output(@json_dir, @dip_doc)
     else
         # booklike section
         dip_object_type = :Section
@@ -143,26 +147,106 @@ def process_dip_object(core_doc)
                 end
             end
         end
-    end
 
-    output(@json_dir, @dip_doc)
+        # Check for multipage
+        multipage = @mets.xpath('//mets:fileGrp[@ID="FileGrpMultipage"]', @namespaces)
+        if multipage.count > 0
+            flocat = @mets.xpath('//mets:fileGrp[@ID="FileGrpMultipage"]//mets:file//mets:FLocat', @namespaces).first
+            if flocat.nil?
+                STDERR.puts "bad flocat for multipage"
+            end
+            href = flocat['xlink:href']
+            href.sub!(%r{\./}, '')
+            @dip_doc[:pdf_url] = urlify(href)
+        end
+
+        format = @dip_doc[:format].first
+        if format != 'audio' && format != 'audiovisual' && format != 'drawings (visual works)' && format != 'images'
+            # possibly pageable
+            output(@json_dir, @dip_doc)
+        end
+    end
 end
 
 def process_section(section, core_doc)
     doc = core_doc.dup
-    order = section['ORDER']
+    order = section['ORDER'].strip
     doc[:id] = [core_doc[:id], order].join('_')
+    #puts ":creation_date was #{doc[:creation_date]}"
+    #doc.delete(:creation_date)
     #puts "* #{doc[:id]}"
 
+    if @finding_aid_xml
+        doc.delete(:creation_date)
+        doc.delete(:creation_full_date)
+        # check for PDF
+        url = dip_url(section, /^PrintImage/)
+        if url
+            doc[:pdf_url] = url
+        end
+
+        # creation_date
+        tag = doc[:id].dup
+        unitdate = @finding_aid_xml.xpath("//xmlns:dao[@entityref='#{tag}_1']/../..//xmlns:unitdate", @fans).first
+        unless unitdate.nil?
+            unitdate = unitdate.content.strip
+            if unitdate =~ /\d\d\d\d/
+                doc[:creation_date] = unitdate.sub(/.*(\d\d\d\d).*/, '\1')
+                doc[:creation_full_date] = unitdate
+            end
+        end
+
+        # title
+        dao_ancestors = @finding_aid_xml.xpath("//xmlns:dao[@entityref='#{tag}_1']/../../ancestor::*", @fans).reverse
+        dao_ancestors.each do |ancestor|
+            break if ancestor.name == 'dsc'
+            unittitle = ancestor.xpath('.//xmlns:unittitle', @fans).first
+            unless unittitle.nil?
+                unittitle = unittitle.content.strip
+                if unittitle.length > 0
+                    doc[:title] = [unittitle]
+                    doc[:title_object] = doc[:title].first
+                    break
+                end
+            end
+        end
+        #unittitles.each do |ut|
+        #    if ut.name == 'dsc'
+        #        break
+        #    end
+        #    puts ut.to_xml
+        #    STDOUT.flush
+        #end
+#        unittitle = @finding_aid_xml.xpath("//xmlns:dao[@entityref='#{tag}_1']/../..//xmlns:unittitle", @fans).first
+#        unless unittitle.nil?
+#            unittitle = unittitle.content.strip
+#            if unittitle.length > 0
+#                doc[:title] = [unittitle]
+#                doc[:title_object] = doc[:title].first
+#            end
+#        else
+#            puts "#{doc[:id]}: no unittitle for #{tag}_1 / #{doc[:title_object]}"
+#            puts @finding_aid_xml.xpath("//xmlns:dao[@entityref='#{tag}_1']/../..", @fans).to_xml
+#            STDOUT.flush
+#        end
+    end
+
     #puts section.xpath('mets:div', @namespaces).count
+    #Parallel.each(section.xpath('mets:div', @namespaces)) do |leaf|
+    first_format = nil
+    #puts "** #{doc[:id]}: processing leaves"
     section.xpath('mets:div', @namespaces).each do |leaf|
-        process_leaf(leaf, doc)
+        #process_leaf(leaf, doc)
+        leaf_format = process_leaf(leaf, doc)
+        if first_format.nil?
+            first_format = leaf_format
+        end
     end
 
     doc[:object_type] = 'section'
     doc[:top_level] = false
     parents = []
-    n = section.children.first
+    n = section.xpath('mets:div', @namespaces).first
 
 # take a moment to figure out first-page metadata
 # begin first-page metadata
@@ -259,18 +343,27 @@ def process_section(section, core_doc)
         end
     end
 
-    # always (for test only)
-    output(@json_dir, doc)
+    if leaves > 0
+        #format = doc[:format].first # first_format
+        format = first_format
+        if format != 'audio' && format != 'audiovisual' && format != 'drawings (visual works)' && format != 'images'
+            # possibly pageable
+            output(@json_dir, doc)
+        end
+    else
+        output(@json_dir, doc)
+    end
 end
 
 def process_leaf(leaf, section_doc)
     doc = section_doc.dup
-    order = leaf['ORDER']
+    order = leaf['ORDER'].strip
     doc[:id] = [section_doc[:id], order].join('_')
     #puts "** #{doc[:id]}"
     doc.delete(:description)
     doc.delete(:subject)
     doc.delete(:text)
+    doc.delete(:creation_date)
     doc[:top_level] = false
 
     # object id
@@ -305,9 +398,10 @@ def process_leaf(leaf, section_doc)
         # creation_date
         unitdate = @finding_aid_xml.xpath("//xmlns:dao[@entityref='#{tag}']/../..//xmlns:unitdate", @fans).first
         unless unitdate.nil?
-            unitdate = unitdate.content
+            unitdate = unitdate.content.strip
             if unitdate =~ /\d\d\d\d/
                 doc[:creation_date] = unitdate.sub(/.*(\d\d\d\d).*/, '\1')
+                doc[:creation_full_date] = unitdate
             end
         end
 
@@ -368,7 +462,10 @@ def process_leaf(leaf, section_doc)
 
         doc[:thumbnail_url] = dip_url(leaf, /^Thumbnail/)
         doc[:front_thumbnail_url] = dip_url(leaf, /^FrontThumbnail/)
-        doc[:pdf_url] = dip_url(leaf, /^PrintImage/)
+        url = dip_url(leaf, /^PrintImage/)
+        if url
+            doc[:pdf_url] = url
+        end
     else
         if doc.include? :finding_aid_url
             case leaf['TYPE']
@@ -408,6 +505,9 @@ def process_leaf(leaf, section_doc)
     end
 
     output(@json_dir, doc)
+
+    #puts doc[:id] + ' ' + doc[:format].first
+    doc[:format].first
 end
 
 def build_core_doc()
@@ -443,6 +543,7 @@ def build_core_doc()
         core_doc[entry] = []
         @mets.xpath("//mets:dmdSec[@ID='DMD1']//dc:#{fieldname}", @namespaces).each do |node|
             core_doc[entry] << node.content.strip
+            puts "#{entry}: #{node.content.strip}"
         end
     end
 
@@ -457,6 +558,7 @@ def build_core_doc()
     end
 
     core_doc[:creation_date] = date_recognizer(core_doc[:date])
+    core_doc[:creation_full_date] = core_doc[:date]
     core_doc[:upload_date] = @mets.xpath('//mets:amdSec//mets:versionStatement', @namespaces).first.content.strip
 
     core_doc
@@ -483,7 +585,7 @@ def date_recognizer(lis)
     if lis.nil?
         ''
     elsif lis.count > 0
-        date = lis.first
+        date = lis.first.dup
         date.gsub!(/\D/, '')
         date[0..3]
     else
@@ -492,7 +594,7 @@ def date_recognizer(lis)
 end
 
 def dip_path(node, re)
-    fptr = node.children.select {|n|
+    fptr = node.xpath('descendant::mets:fptr', @namespaces).select {|n|
         n['FILEID'] =~ re
     }.first
     if fptr
@@ -518,7 +620,6 @@ def dip_url(node, re)
 end
 
 def output(json_dir, doc)
-#puts "#{doc[:id]}"
     output_path = File.join(
         json_dir,
         doc[:id]
@@ -529,6 +630,12 @@ def output(json_dir, doc)
             if value.class == String
                 unless value.valid_encoding?
                     doc[key] = value.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '').strip.gsub(/\.\.$/, '.')
+                end
+            elsif value.class == Array
+                value.each do |item|
+                    unless item.valid_encoding?
+                        doc[key] = item.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '').strip.gsub(/\.\.$/, '.')
+                    end
                 end
             end
         end

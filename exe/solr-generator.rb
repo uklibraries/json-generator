@@ -129,6 +129,7 @@ Parallel.each(Find.find(json_dir)) do |path|
         solr[:parent_id_s] = json[:parent_id]
         solr[:pdf_url_display] = json[:pdf_url]
         solr[:pub_date] = json[:creation_date]
+        solr[:pub_date_display] = json[:creation_full_date]
         unless json[:publisher].nil?
             solr[:publisher_display] = json[:publisher].first
             solr[:publisher_t] = json[:publisher].first
