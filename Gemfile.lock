@@ -2,10 +2,12 @@ GEM
   remote: https://rubygems.org/
   specs:
     exifr (1.3.4)
-    mini_portile2 (2.3.0)
-    nokogiri (1.8.5)
-      mini_portile2 (~> 2.3.0)
+    mini_portile2 (2.5.1)
+    nokogiri (1.11.4)
+      mini_portile2 (~> 2.5.0)
+      racc (~> 1.4)
     parallel (1.12.1)
+    racc (1.5.2)
     ruby-prof (0.17.0)
 
 PLATFORMS
