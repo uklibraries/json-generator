@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# XXX: This file is unused in the current pipeline and will be removed in the future.
+
 require 'find'
 require 'json'
 require 'parallel'
@@ -98,7 +100,10 @@ Parallel.each(Find.find(json_dir)) do |path|
         solr[:author_display] = author
         solr[:author_t] = author
 
-        if ['collection', 'section', 'audio', 'video', 'image'].include? json[:object_type]
+        # XXX temp!
+        # I don't know how to fix this generally!
+        if ['collection', 'section', 'audio', 'image'].include? json[:object_type]
+        #if ['collection', 'section', 'audio', 'video', 'image'].include? json[:object_type]
             solr[:compound_object_split_b] = true
         else
             solr[:compound_object_split_b] = false

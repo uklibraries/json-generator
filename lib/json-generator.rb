@@ -177,6 +177,7 @@ def process_section(section, core_doc)
     #puts "* #{doc[:id]}"
 
     if @finding_aid_xml
+        doc.delete(:date)
         doc.delete(:creation_date)
         doc.delete(:creation_full_date)
         # check for PDF
@@ -190,6 +191,7 @@ def process_section(section, core_doc)
         unitdate = @finding_aid_xml.xpath("//xmlns:dao[@entityref='#{tag}_1']/../..//xmlns:unitdate", @fans).first
         unless unitdate.nil?
             unitdate = unitdate.content.strip
+            doc[:date] = [unitdate]
             if unitdate =~ /\d\d\d\d/
                 doc[:creation_date] = unitdate.sub(/.*(\d\d\d\d).*/, '\1')
                 doc[:creation_full_date] = unitdate

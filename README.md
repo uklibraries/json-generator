@@ -6,6 +6,6 @@ This program is used to summarize metadata from METS and EAD files for packages 
 License
 -------
 
-Copyright 2018 MLE Slone.
+Copyright 2018-2025 MLE Slone.
 
 See LICENSE for terms.

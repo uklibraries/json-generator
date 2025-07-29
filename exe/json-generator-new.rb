@@ -1,10 +1,11 @@
 #!/usr/bin/env ruby
 
+require 'fileutils'
 require './lib/json-generator.rb'
 
 @id = ARGV[0]
 @dip_dir = '/opt/shares/library_dips_2/test_dips/' + xtpath(@id)
-@json_dir = '/tmpdir/json-cache/' + xtpath(@id)
+@json_dir = '/opt/shares/library_mips_2/exploreuk/json-cache/' + xtpath(@id)
 mets_file = File.join @dip_dir, 'data', 'mets.xml'
 
 unless File.exist? mets_file
