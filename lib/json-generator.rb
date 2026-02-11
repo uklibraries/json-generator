@@ -549,6 +549,21 @@ def build_core_doc()
         end
     end
 
+    # Do we have a qualified relation element?
+    entry = "relation_rich".to_sym
+    @mets.xpath("//mets:dmdSec[@ID='DMD1']//dc:relation", @namespaces).each do |node|
+        if node.has_attribute? "type" and node.has_attribute? "identifier"
+            m = {
+                content: node.content.strip,
+                type: node["type"].strip,
+                identifier: node["identifier"].strip,
+            }
+            puts "#{entry}: #{m.to_json}"
+            core_doc[entry] ||= []
+            core_doc[entry] << m.to_json
+        end
+    end
+
     unless core_doc[:title].count == 0
         core_doc[:title_object] = core_doc[:title].first
     end
